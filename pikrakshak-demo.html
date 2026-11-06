@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PikRakshak: Verify Before You Spray (prototype)</title>
+<style>
+:root{--bg:#fffaf3;--card:#ffffff;--ink:#1a1a1a;--mut:#555;--or:#c96a0a;--gr:#2f6a14;--rd:#b3261e;--nv:#2d3a8c;--line:#e4d9c8;--okbg:#e6f2dc;--nobg:#fde7e5;--chbg:#fff0dd;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#16130e;--card:#211c14;--ink:#f3ede2;--mut:#b8ad9a;--or:#f0a04b;--gr:#8fd16a;--rd:#ff8a80;--nv:#a9b4ff;--line:#3a3226;--okbg:#1f3318;--nobg:#3d1b18;--chbg:#3a2a12}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#16130e;--card:#211c14;--ink:#f3ede2;--mut:#b8ad9a;--or:#f0a04b;--gr:#8fd16a;--rd:#ff8a80;--nv:#a9b4ff;--line:#3a3226;--okbg:#1f3318;--nobg:#3d1b18;--chbg:#3a2a12}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari",Arial,sans-serif;line-height:1.45}
+.wrap{max-width:760px;margin:0 auto;padding:16px}
+h1{font-size:1.6rem;margin:0}
+.tag{color:var(--or);font-weight:700;margin:2px 0 10px}
+.note{background:var(--chbg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:.9rem;color:var(--mut)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0 6px}
+.lbl{font-weight:700;margin:16px 0 6px}
+button,.chip{font:inherit;cursor:pointer}
+.chip{border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 16px;min-height:44px}
+.chip[aria-pressed="true"]{border-color:var(--or);background:var(--chbg);font-weight:700}
+.packs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.pack{text-align:left;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:14px;padding:12px;min-height:44px}
+.pack[aria-pressed="true"]{border-color:var(--nv);box-shadow:0 0 0 2px var(--nv) inset}
+.pack b{display:block}.pack small{color:var(--mut)}
+.blur{filter:blur(2.2px)}
+.go{background:var(--or);color:#fff;border:0;border-radius:12px;padding:12px 22px;font-weight:700;min-height:48px}
+.go.alt{background:var(--nv)}
+.go:disabled{opacity:.6;cursor:default}
+.steps{list-style:none;padding:0;margin:14px 0}
+.steps li{padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin:6px 0;background:var(--card);color:var(--mut);display:flex;justify-content:space-between;gap:8px}
+.steps li.on{color:var(--ink);border-color:var(--nv)}
+.steps li.done{color:var(--ink)}
+.res{border-radius:16px;padding:16px;margin-top:10px;border:2px solid var(--line);background:var(--card)}
+.res.safe{background:var(--okbg);border-color:var(--gr)}.res.no{background:var(--nobg);border-color:var(--rd)}.res.chk{background:var(--chbg);border-color:var(--or)}
+.v{font-size:1.6rem;font-weight:800;margin:0}
+.safe .v{color:var(--gr)}.no .v{color:var(--rd)}.chk .v{color:var(--or)}
+dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:10px 0}dt{color:var(--mut)}dd{margin:0;font-weight:600}
+.foot{color:var(--mut);font-size:.85rem;margin-top:22px}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>PikRakshak <span lang="mr">(पीक रक्षक)</span></h1>
+  <p class="tag" id="tag">Verify before you spray</p>
+  <div class="note" id="note">Prototype demo with illustrative sample data. Product names, doses and rules here are made up to show the flow. This is not agronomic advice.</div>
+
+  <div class="row">
+    <button class="chip" id="lEn" aria-pressed="true">English</button>
+    <button class="chip" id="lMr" aria-pressed="false">मराठी</button>
+    <button class="go alt" id="auto">▶ Auto-play demo</button>
+  </div>
+
+  <div class="lbl" id="t1">1. Choose the crop</div>
+  <div class="row" id="crops"></div>
+
+  <div class="lbl" id="t2">2. Choose a sample pesticide pack</div>
+  <div class="packs" id="packs"></div>
+
+  <div class="row"><button class="go" id="scan">📷 Scan the pack</button></div>
+  <ul class="steps" id="steps" aria-live="polite"></ul>
+  <div id="out" aria-live="polite"></div>
+
+  <p class="foot" id="foot">Flow shown: Label Agent (OCR) → Rules Agent → Knowledge Agent (RAG) → Safety Gate → verdict. The verdict is decided by the rules table, not by a language model. In the real system the rules come from registered-product data and agri-university advisories.</p>
+</div>
+
+<script>
+const T={
+ en:{tag:'Verify before you spray',note:'Prototype demo with illustrative sample data. Product names, doses and rules here are made up to show the flow. This is not agronomic advice.',t1:'1. Choose the crop',t2:'2. Choose a sample pesticide pack',scan:'📷 Scan the pack',auto:'▶ Auto-play demo',
+  foot:'Flow shown: Label Agent (OCR) → Rules Agent → Knowledge Agent (RAG) → Safety Gate → verdict. The verdict is decided by the rules table, not by a language model. In the real system the rules come from registered-product data and agri-university advisories.',
+  crops:{cotton:'Cotton',soybean:'Soybean'},
+  steps:['Label Agent: reading the label (OCR)','Rules Agent: checking registration, dose, banned list','Knowledge Agent: finding advisories (RAG)','Safety Gate: confidence check'],
+  ok:'SAFE TO USE',no:'DO NOT USE',chk:'CHECK WITH AN EXPERT',
+  read:'Read from label',dose:'Dose (demo)',phi:'Wait before harvest',src:'Source',conf:'Read confidence',
+  days:' days',
+  whyOk:c=>'Registered for '+c+' in the demo rules table.',whyNoCrop:c=>'Not registered for '+c+' in the demo rules table.',whyBan:'Listed as banned in the demo rules table.',whyLow:'The label could not be read reliably. Re-scan in better light or ask an expert.',
+  tip:'Wear gloves and a mask, spray with the wind behind you, and keep people out of the field until it dries.',
+  esc:'Send to KVK expert (demo)',sent:'Sent to a KVK expert with the photo (demo only).',speak:'🔊 Read aloud',srcv:'Demo rules table v1 (illustrative)'},
+ mr:{tag:'फवारणीआधी पडताळा',note:'हा नमुना (prototype) उदाहरणादाखल बनवलेल्या माहितीवर चालतो. उत्पादनांची नावे, डोस आणि नियम फक्त प्रवाह दाखवण्यासाठी आहेत. हा शेतीविषयक सल्ला नाही.',t1:'१. पीक निवडा',t2:'२. औषधाचा नमुना पाकीट निवडा',scan:'📷 पाकीट स्कॅन करा',auto:'▶ डेमो आपोआप चालवा',
+  foot:'प्रवाह: Label Agent (OCR) → Rules Agent → Knowledge Agent (RAG) → Safety Gate → निकाल. निकाल नियम-तक्त्यावरून ठरतो, भाषा मॉडेलवरून नाही. खऱ्या प्रणालीत नियम नोंदणीकृत उत्पादनांच्या माहितीतून आणि कृषी विद्यापीठांच्या सल्ल्यातून येतील.',
+  crops:{cotton:'कापूस',soybean:'सोयाबीन'},
+  steps:['Label Agent: लेबल वाचत आहे (OCR)','Rules Agent: नोंदणी, डोस, बंदी यादी तपासत आहे','Knowledge Agent: सल्ले शोधत आहे (RAG)','Safety Gate: खात्रीची तपासणी'],
+  ok:'वापरण्यास सुरक्षित',no:'वापरू नका',chk:'तज्ज्ञांना विचारा',
+  read:'लेबलवरून वाचले',dose:'डोस (डेमो)',phi:'कापणीआधी थांबण्याचा कालावधी',src:'स्रोत',conf:'वाचनाची खात्री',
+  days:' दिवस',
+  whyOk:c=>'डेमो नियम-तक्त्यात हे औषध '+c+' साठी नोंदणीकृत आहे.',whyNoCrop:c=>'डेमो नियम-तक्त्यात हे औषध '+c+' साठी नोंदणीकृत नाही.',whyBan:'डेमो नियम-तक्त्यात हे औषध बंदी यादीत आहे.',whyLow:'लेबल नीट वाचता आले नाही. चांगल्या प्रकाशात पुन्हा स्कॅन करा किंवा तज्ज्ञांना विचारा.',
+  tip:'हातमोजे आणि मास्क वापरा, वारा पाठीमागे ठेवून फवारा, आणि शेत वाळेपर्यंत माणसांना आत जाऊ देऊ नका.',
+  esc:'KVK तज्ज्ञाकडे पाठवा (डेमो)',sent:'फोटोसह KVK तज्ज्ञाकडे पाठवले (फक्त डेमो).',speak:'🔊 वाचून दाखवा',srcv:'डेमो नियम-तक्ता v1 (उदाहरणार्थ)'}
+};
+const PACKS={
+ A:{name:'SampleShield 20 SC',active:'Demoprid 20% SC',conf:.96,reg:{cotton:{dose:{en:'0.5 ml per litre of water',mr:'प्रति लिटर पाण्यात ०.५ मिली'},phi:15}}},
+ B:{name:'OldKill 36 SL',active:'Demobanned 36% SL',conf:.94,banned:true},
+ C:{name:'Blurry photo',active:'?',conf:.52,blur:true}
+};
+const CROPS=['cotton','soybean'];
+let lang='en',crop='cotton',pack='A',busy=false;
+const $=id=>document.getElementById(id);
+const t=()=>T[lang];
+
+function verdict(p,c){ // the rules engine: plain deterministic rules
+  const k=PACKS[p];
+  if(k.conf<.8) return {v:'chk',why:t().whyLow};
+  if(k.banned) return {v:'no',why:t().whyBan};
+  const r=k.reg&&k.reg[c];
+  if(!r) return {v:'no',why:t().whyNoCrop(t().crops[c])};
+  return {v:'safe',why:t().whyOk(t().crops[c]),r};
+}
+function renderStatic(){
+  const L=t();
+  $('tag').textContent=L.tag;$('note').textContent=L.note;$('t1').textContent=L.t1;$('t2').textContent=L.t2;
+  $('scan').textContent=L.scan;$('auto').textContent=L.auto;$('foot').textContent=L.foot;
+  $('lEn').setAttribute('aria-pressed',lang==='en');$('lMr').setAttribute('aria-pressed',lang==='mr');
+  $('crops').innerHTML=CROPS.map(c=>`<button class="chip" data-c="${c}" aria-pressed="${c===crop}">${L.crops[c]}</button>`).join('');
+  $('packs').innerHTML=Object.keys(PACKS).map(k=>{const p=PACKS[k];return `<button class="pack" data-p="${k}" aria-pressed="${k===pack}"><b class="${p.blur?'blur':''}">${p.name}</b><small class="${p.blur?'blur':''}">${p.active}</small></button>`}).join('');
+  document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{if(busy)return;crop=b.dataset.c;clearOut();renderStatic()});
+  document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{if(busy)return;pack=b.dataset.p;clearOut();renderStatic()});
+}
+function clearOut(){$('steps').innerHTML='';$('out').innerHTML=''}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+async function run(){
+  if(busy)return;busy=true;$('scan').disabled=true;$('auto').disabled=true;
+  const L=t(),k=PACKS[pack];clearOut();
+  $('steps').innerHTML=L.steps.map((s,i)=>`<li id="s${i}"><span>${s}</span><span></span></li>`).join('');
+  const extra=[k.blur?'?':k.active,k.reg&&k.reg[crop]?'✓':(k.banned?'✗':'–'),'3 sources',Math.round(k.conf*100)+'%'];
+  for(let i=0;i<4;i++){
+    $('s'+i).className='on';await wait(650);
+    $('s'+i).className='done';$('s'+i).lastChild.textContent=extra[i];
+  }
+  const d=verdict(pack,crop);
+  let html=`<div class="res ${d.v==='safe'?'safe':d.v==='no'?'no':'chk'}"><p class="v">${d.v==='safe'?L.ok:d.v==='no'?L.no:L.chk}</p><p>${d.why}</p><dl>`;
+  html+=`<dt>${L.read}</dt><dd>${k.blur?'?':k.name+' · '+k.active}</dd><dt>${L.conf}</dt><dd>${Math.round(k.conf*100)}%</dd>`;
+  if(d.v==='safe') html+=`<dt>${L.dose}</dt><dd>${d.r.dose[lang]}</dd><dt>${L.phi}</dt><dd>${d.r.phi}${L.days}</dd>`;
+  html+=`<dt>${L.src}</dt><dd>${L.srcv}</dd></dl>`;
+  if(d.v==='safe') html+=`<p>${L.tip}</p>`;
+  html+=`<div class="row">`;
+  if(d.v==='chk') html+=`<button class="go alt" id="esc">${L.esc}</button>`;
+  html+=`<button class="chip" id="spk">${L.speak}</button></div><p id="escmsg" class="hide"></p></div>`;
+  $('out').innerHTML=html;
+  const say=`${d.v==='safe'?L.ok:d.v==='no'?L.no:L.chk}. ${d.why}`;
+  $('spk').onclick=()=>{try{const u=new SpeechSynthesisUtterance(say);u.lang=lang==='mr'?'mr-IN':'en-IN';speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}};
+  if($('esc'))$('esc').onclick=()=>{$('escmsg').textContent=L.sent;$('escmsg').className=''};
+  busy=false;$('scan').disabled=false;$('auto').disabled=false;
+}
+async function autoplay(){
+  if(busy)return;
+  for(const [p,c] of [['A','cotton'],['A','soybean'],['B','cotton'],['C','cotton']]){
+    pack=p;crop=c;renderStatic();await run();await wait(2600);
+  }
+}
+$('scan').onclick=run;$('auto').onclick=autoplay;
+$('lEn').onclick=()=>{lang='en';clearOut();renderStatic()};
+$('lMr').onclick=()=>{lang='mr';clearOut();renderStatic()};
+renderStatic();
+</script>
+</body>
+</html>
